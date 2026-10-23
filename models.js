@@ -53,3 +53,55 @@ function createCylinder(segments) {
 
   return { positions: new Float32Array(pos), normals: new Float32Array(nrm), indices: new Uint16Array(idx) };
 }
+
+funtion createTriangularPrism() {
+  cost positions = new Float32Array([[
+    //Front
+    -1, -1, 1,
+    1, -1, 1,
+    0, 1, 1,
+
+    //Back
+    1, -1, -1,
+    -1, -1, -1, 
+    0, 1, -1,
+
+    //Bottom
+    -1, -1, 1,
+    -1, -1, -1,
+    1, -1, -1,
+    1, -1, 1,
+
+    //Left
+    -1, -1, 1,
+    0, 1, 1,
+    0, 1, -1,
+    -1, -1, -1,
+
+    //Right
+    1, -1, 1,
+    1, -1, -1,
+    0, 1, -1,
+    0, 1, 1
+  ]]);
+
+  //Normals
+  const normals = new Float32Array([
+    //Front
+    0,0,1, 0,0,1, 0,0,1,
+
+    //Back
+    0,0,-1, 0,0,-1, 0,0,-1,
+
+    //Bottom
+    0,-1,0, 0,-1,0, 0,-1,0, 0,-1,0,
+
+    //Left
+    -1,0,0, -1,0,0, -1,0,0, -1,0,0,
+
+    //Right
+    1,0,0, 1,0,0, 1,0,0, 1,0,0
+  ]);
+
+  cost indices =  new 
+}
