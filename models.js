@@ -54,8 +54,8 @@ function createCylinder(segments) {
   return { positions: new Float32Array(pos), normals: new Float32Array(nrm), indices: new Uint16Array(idx) };
 }
 
-funtion createTriangularPrism() {
-  cost positions = new Float32Array([[
+  function createTriangularPrism() {
+  const positions = new Float32Array([[
     //Front
     -1, -1, 1,
     1, -1, 1,
@@ -85,23 +85,50 @@ funtion createTriangularPrism() {
     0, 1, 1
   ]]);
 
-  //Normals
+  // Normal vectors for the slanted faces got from getting the vectors that 
+  // connects the sides, subtracting them then using dot product to find a normal
+  const nx = 2 / Math.sqrt(5);
+  const ny = 1 / Math.sqrt(5);
+
   const normals = new Float32Array([
-    //Front
-    0,0,1, 0,0,1, 0,0,1,
+    // Front
+     0, 0, 1,  0, 0, 1,  0, 0, 1,
 
-    //Back
-    0,0,-1, 0,0,-1, 0,0,-1,
+    // Back
+     0, 0,-1,  0, 0,-1,  0, 0,-1,
 
-    //Bottom
-    0,-1,0, 0,-1,0, 0,-1,0, 0,-1,0,
+    // Bottom
+     0,-1, 0,  0,-1, 0,  0,-1, 0,  0,-1, 0,
 
-    //Left
-    -1,0,0, -1,0,0, -1,0,0, -1,0,0,
+    // Left
+    -nx,ny,0, -nx,ny,0, -nx,ny,0, -nx,ny,0,
 
-    //Right
-    1,0,0, 1,0,0, 1,0,0, 1,0,0
+    // Right
+     nx,ny,0,  nx,ny,0,  nx,ny,0,  nx,ny,0
   ]);
 
-  cost indices =  new 
+  const indices = new Uint16Array([
+      // Front
+      0,  1,  2,
+
+      // Back
+      3,  4,  5,
+
+      // Bottom
+      6,  7,  8,
+      6,  8,  9,
+
+      // Left
+      10, 11, 12,
+      10, 12, 13,
+
+      // Right
+      14, 15, 16,
+      14, 16, 17
+  ]);
+
+   return { positions, normals, indices };
 }
+
+// Set stacks and slices to 24 and 32 by default
+function createSphere(stacks = 24, slices = 32)

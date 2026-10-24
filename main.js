@@ -176,6 +176,7 @@ const upperArm = createNode(cubeMesh, [0.2, 0.4, 1],
 
 lowerArm.children.push(upperArm);
 
+
 function drawNode(node, frame) {
   gl.uniformMatrix4fv(uModelView, false, multiply(frame, node.shape));
   gl.uniform3fv(uColor, node.color);
