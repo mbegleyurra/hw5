@@ -131,4 +131,46 @@ function createCylinder(segments) {
 }
 
 // Set stacks and slices to 24 and 32 by default
-function createSphere(stacks = 24, slices = 32)
+function createSphere(stacks = 24, slices = 32) {
+  const pos = [];
+  const nrm = [];
+  const idx = [];
+
+  // loop to create the vertices
+  for (let i = 0; i <= stacks; i++) {
+    const theta = (i / stacks) * Math.PI;
+
+    for (let j = 0; j <= slices; j++) {
+      const phi = (j / slices) * 2 * Math.PI;
+
+      const x = Math.sin(theta) * Math.cos(phi);
+      const y = Math.cos(theta);
+      const z = Math.sim(theta) * Math.cos(phi);
+    }
+
+    // push a position to the pos list
+    pos.push(x, y, z);
+
+    // push the normals to the normal list
+    nrm.push(x, y, z);
+  }
+
+  // Triangle indices
+  for (let i = 0; i < stacks; i++) {
+    for (let j = 0; j < slices; j++) {
+      // Top left
+      const a = i * (slices + 1) + j;
+      // Top right
+      const b = (i + 1) * (slices + 1) + j;
+      const c = a + 1;
+      const d = b + 1;
+
+      if (i > 0) {
+        idx.push(c, d, b);
+      }
+    }
+
+
+  }
+
+}
