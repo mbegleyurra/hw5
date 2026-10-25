@@ -23,25 +23,40 @@ in vec3 vPosition;
 in vec3 vNormal;
 
 uniform vec3 uLightPos;   // eye space
-uniform vec3 uColor;
+uniform vec3 uKa, uKd, uKs; // Ambient, diffuse, specular
+uniform float uShininess;
+uniform bool uFlat; // True is flat shading, false is smooth shading
 
 out vec4 fragColor;
 
 void main() {
-  vec3 Ka = 0.2 * uColor;
-  vec3 Kd = 0.8 * uColor;
-  vec3 Ks = vec3(0.5);
-  float shininess = 32.0;
 
-  vec3 N = normalize(vNormal);
+  vec3 N;
+  if(uFlat) {
+    N = normalize(cross(dFdx(vPosition), dFdy(vPosition)));
+  } else {
+    N = normalize(vNormal);
+  }
+
+  // Light direction
   vec3 L = normalize(uLightPos - vPosition);
-  vec3 V = normalize(-vPosition);           // camera sits at the origin
+  // Camera (origin to surface)
+  vec3 V = normalize(-vPosition);
+  // The direction the light bonces off the surface
   vec3 R = reflect(-L, N);
+  
+  // Both vectors are normal so this is the cosine of the angle between them
+  // Set to zero if the result is negative i.e. the light is not facing the surface
+  float diff = max(dot(N,L), 0.0);
 
-  float diff = max(dot(N, L), 0.0);
-  float spec = pow(max(dot(V, R), 0.0), shininess);
+  // Specular light is zero
+  float spec = 0.0;
 
-  fragColor = vec4(Ka + Kd * diff + Ks * spec, 1.0);
+  if (diff > 0.0) {
+    spec = pow(max(dot(V, R), 0.0), uShininess);
+  }
+
+  fragColor = vec4(uKa + uKd * diff + uKs * spec, 1.0);
 }
 `;
 
@@ -77,7 +92,8 @@ const shaderError = document.getElementById("shaderError");
 vertEditor.value = VERTEX_SHADER;
 fragEditor.value = FRAGMENT_SHADER;
 
-let program, uModelView, uProjection, uLightPos, uColor;
+// Removing uColor
+let program, uModelView, uProjection, uLightPos, uKa, uKd, uKs, uShininess, uFlat;
 
 function updateProgram() {
   try {
@@ -88,7 +104,13 @@ function updateProgram() {
     uModelView = gl.getUniformLocation(program, "uModelView");
     uProjection = gl.getUniformLocation(program, "uProjection");
     uLightPos = gl.getUniformLocation(program, "uLightPos");
-    uColor = gl.getUniformLocation(program, "uColor");
+    uKa = gl.getUniformLocation(program, "uKa");
+    uKd = gl.getUniformLocation(program, "uKd");
+    uKs = gl.getUniformLocation(program, "uKs");
+
+    uShininess = gl.getUniformLocation(program, "uShininess");
+
+    uFlat = gl.getUniformLocation(program, "uFlat");
     shaderError.textContent = "";
   } catch (e) {
     shaderError.textContent = e.message.replace(/\0/g, "");  // some drivers end the log with \0
@@ -117,6 +139,9 @@ function createMesh({ positions, normals, indices }) {
 
 const cubeMesh = createMesh(createCube());
 const cylinderMesh = createMesh(createCylinder(32));
+//Adding sphere and triangular prism
+const sphereMesh = createMesh(createSphere());
+const prismMesh = createMesh(createTriangularPrism());
 
 gl.enable(gl.DEPTH_TEST);
 gl.clearColor(0, 0, 0, 1);
@@ -161,23 +186,44 @@ document.getElementById("slider").addEventListener("input", e => {
 });
 document.getElementById("spinButton").addEventListener("click", () => spinning = !spinning);
 
+// New materials
+const MATTE_RED = { ka: [0.2, 0.04, 0.04], kd: [0.8, 0.16, 0.16], ks: [0, 0, 0], shininess: 1 };
+const PLASTIC_BLUE = { ka: [0.04, 0.08, 0.2], kd: [0.16, 0.32, 0.8], ks: [0.5, 0.5, 0.5], shininess: 32 };
+const GOLD = { ka: [0.25, 0.2, 0.07], kd: [0.35, 0.28, 0.1], ks: [0.8, 0.7, 0.4], shininess: 80 };
+const GLOSSY_GREEN = { ka: [0.05, 0.2, 0.1],  kd: [0, 0, 0], ks: [0.9, 0.9, 0.9], shininess: 16 };
 
-function createNode(mesh, color, shape) {
-  return { mesh, color, shape, joint: null, children: [] };
+function createNode(mesh, material, shape, flat = false) {
+  return { mesh, material, shape, flat, joint: null, children: []};
 }
 
-// Lower arm: scale the cylinder then move it up by 0.6 so its bottom sits at the joint
-const lowerArm = createNode(cylinderMesh, [1, 0.2, 0.2],
-  multiply(translate(0, 0.6, 0), scale(0.3, 0.6, 0.3)));
+// Updated so each will have material and color
+const lowerArm = createNode(cylinderMesh, MATTE_RED,
+  multiply(translate(0, 0.6, 0), scale(0.3, 0.6, 0.3)), true);
+
 
 // Upper arm: scale the cube then move it up by 0.5 so its bottom sits at the joint
-const upperArm = createNode(cubeMesh, [0.2, 0.4, 1],
+const upperArm = createNode(cubeMesh, PLASTIC_BLUE,
   multiply(translate(0, 0.5, 0), scale(0.2, 0.5, 0.2)));
 
+
+  // Adding sphere
+const sphereNode = createNode(sphereMesh, GOLD,
+  scale(0.25, 0.25, 0.25));
+
+
+  // adding triangular prism
+const prismNode = createNode(prismMesh, GLOSSY_GREEN,
+  multiply(translate(0, 0.25, 0), scale(0.2, 0.25, 0.15)));
+
+
+// Transformation hierarchy
 lowerArm.children.push(upperArm);
+upperArm.children.push(sphereNode); // Adding a "hinge"
+sphereNode.children.push(prismNode); // Last piece 
 
 
 function drawNode(node, frame) {
+  const m = node.material;
   gl.uniformMatrix4fv(uModelView, false, multiply(frame, node.shape));
   gl.uniform3fv(uColor, node.color);
   gl.bindVertexArray(node.mesh.vao);
@@ -217,6 +263,10 @@ function render(time) {
 
   // Upper arm (child)
   upperArm.joint = multiply(translate(0, 1.2, 0), rotateZ(Math.sin(1.5 * t)));
+  
+  sphereNode.joint = translate(0, 1.0, 0);
+
+  prismNode.joint = multiply(translate(0, 0.25, 0), rotateY(t));
 
   drawTree(lowerArm, view);
   requestAnimationFrame(render);
