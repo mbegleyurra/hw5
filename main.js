@@ -23,14 +23,31 @@ in vec3 vPosition;
 in vec3 vNormal;
 
 uniform vec3 uLightPos;   // eye space
+uniform vec3 uLightPos2;
 uniform vec3 uKa, uKd, uKs; // Ambient, diffuse, specular
 uniform float uShininess;
 uniform bool uFlat; // True is flat shading, false is smooth shading
 
 out vec4 fragColor;
 
+vec3 shade(vec3 lightPos, vec3 N, vec3 V) {
+  vec3 L = normalize(lightPos - vPosition);
+  vec3 R = reflect(-L, N);
+
+  float diff = max(dot(N, L), 0.0);
+
+  float spec = 0.0;
+
+  if (diff > 0.0) {
+    spec = pow(max(dot(V, R), 0.0), uShininess);
+  }
+
+  return uKd * diff + uKs * spec;
+}
+
 void main() {
 
+  
   vec3 N;
   if(uFlat) {
     N = normalize(cross(dFdx(vPosition), dFdy(vPosition)));
@@ -38,25 +55,9 @@ void main() {
     N = normalize(vNormal);
   }
 
-  // Light direction
-  vec3 L = normalize(uLightPos - vPosition);
-  // Camera (origin to surface)
   vec3 V = normalize(-vPosition);
-  // The direction the light bonces off the surface
-  vec3 R = reflect(-L, N);
-  
-  // Both vectors are normal so this is the cosine of the angle between them
-  // Set to zero if the result is negative i.e. the light is not facing the surface
-  float diff = max(dot(N,L), 0.0);
 
-  // Specular light is zero
-  float spec = 0.0;
-
-  if (diff > 0.0) {
-    spec = pow(max(dot(V, R), 0.0), uShininess);
-  }
-
-  fragColor = vec4(uKa + uKd * diff + uKs * spec, 1.0);
+  fragColor = vec4(uKa + shade(uLightPos, N, V) + shade(uLightPos2, N, V), 1.0);
 }
 `;
 
@@ -93,7 +94,7 @@ vertEditor.value = VERTEX_SHADER;
 fragEditor.value = FRAGMENT_SHADER;
 
 // Removing uColor
-let program, uModelView, uProjection, uLightPos, uKa, uKd, uKs, uShininess, uFlat;
+let program, uModelView, uProjection, uLightPos, uLightpos2, uKa, uKd, uKs, uShininess, uFlat;
 
 function updateProgram() {
   try {
@@ -104,6 +105,7 @@ function updateProgram() {
     uModelView = gl.getUniformLocation(program, "uModelView");
     uProjection = gl.getUniformLocation(program, "uProjection");
     uLightPos = gl.getUniformLocation(program, "uLightPos");
+    uLightPos2 = gl.getUniformLocation(program, "uLightPos2");
     uKa = gl.getUniformLocation(program, "uKa");
     uKd = gl.getUniformLocation(program, "uKd");
     uKs = gl.getUniformLocation(program, "uKs");
@@ -147,6 +149,8 @@ gl.enable(gl.DEPTH_TEST);
 gl.clearColor(0, 0, 0, 1);
 const projection = perspective(Math.PI / 4, canvas.width / canvas.height, 0.1, 100);
 const lightWorld = [3, 4, 5];
+// Second light
+const lightWorld2 = [-4, 2, 3];
 
 // nteractive controls
 let dragRotX = 0, dragRotY = -0.5;      // mouse drag
@@ -225,7 +229,16 @@ sphereNode.children.push(prismNode); // Last piece
 function drawNode(node, frame) {
   const m = node.material;
   gl.uniformMatrix4fv(uModelView, false, multiply(frame, node.shape));
-  gl.uniform3fv(uColor, node.color);
+
+  gl.uniform3fv(uKa, m.ka);
+  gl.uniform3fv(uKd, m.kd);
+  gl.uniform3fv(uKs, m.ks);
+  gl.uniform1f(uShininess, m.shininess);
+  if(node.flat) {
+    gl.uniform1i(uFlat, 1);
+  } else {
+    gl.uniform1i(uFlat, 0);
+  }
   gl.bindVertexArray(node.mesh.vao);
   gl.drawElements(gl.TRIANGLES, node.mesh.count, gl.UNSIGNED_SHORT, 0);
 }
@@ -253,6 +266,7 @@ function render(time) {
   const view = translate(camX, camY, camZ);
   gl.uniformMatrix4fv(uProjection, false, projection);
   gl.uniform3fv(uLightPos, transformPoint(view, lightWorld));
+  gl.uniform3fv(uLightPos2, transformPoint(view, lightWorld2));
 
   // Whole-model rotation
   const axisRotation = ROTATE[axisSelect.value](sliderAngle * Math.PI / 180 + spinAngle);
