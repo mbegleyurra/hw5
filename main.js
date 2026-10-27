@@ -152,7 +152,7 @@ const lightWorld = [3, 4, 5];
 // Second light
 const lightWorld2 = [-4, 2, 3];
 
-// nteractive controls
+// Interactive controls
 let dragRotX = 0, dragRotY = -0.5;      // mouse drag
 let camX = 0, camY = 0, camZ = -7;      // arrow keys, w, s
 let sliderAngle = 0;                    // degrees
@@ -225,6 +225,20 @@ lowerArm.children.push(upperArm);
 upperArm.children.push(sphereNode); // Adding a "hinge"
 sphereNode.children.push(prismNode); // Last piece 
 
+const upperArmSlider = document.getElementById("upperArmSlider");
+const prismSlider = document.getElementById("prismSlider");
+
+document.getElementById("upperArmColor").addEventListener("input", e => {
+  const hex = e.target.value;
+  const color = [1, 3, 5].map(i => parseInt(hex.substr(i, 2), 16) / 255);
+  upperArm.material.kd = color; 
+  upperArm.material.ka = color.map(c => c * 0.25);
+});
+
+document.getElementById("sphereShine").addEventListener("input", e => {
+  sphereNode.material.shininess = Number(e.target.value);
+});
+
 
 function drawNode(node, frame) {
   const m = node.material;
@@ -275,12 +289,16 @@ function render(time) {
   // Lower arm (root)
   lowerArm.joint = multiply(multiply(translate(0, -2, 0), rotation), rotateZ(0.5 * Math.sin(t)));
 
+  const deg = Math.PI / 180;
+
   // Upper arm (child)
-  upperArm.joint = multiply(translate(0, 1.2, 0), rotateZ(Math.sin(1.5 * t)));
+  // Updated to twist based on the slider
+  upperArm.joint = multiply(translate(0, 1.2, 0), rotateZ(Number(upperArmSlider.value) * deg));
   
   sphereNode.joint = translate(0, 1.0, 0);
 
-  prismNode.joint = multiply(translate(0, 0.25, 0), rotateY(t));
+  // Updated to twist based on the slider
+  prismNode.joint = multiply(translate(0, 0.25, 0), rotateY(Number(prismSlider.value) * deg));
 
   drawTree(lowerArm, view);
   requestAnimationFrame(render);
